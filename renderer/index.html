@@ -223,8 +223,11 @@ function renderContent(md) {
   let html = md.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, target, display) => {
     const t = target.trim();
     const text = display || t.split('/').pop().replace(/_/g, ' ');
-    // Resolve via slug_lookup or direct note key
-    const resolved = DATA.notes[t] ? t : (DATA.slug_lookup?.[t.toLowerCase()] || t);
+    // Handle /_index convention: "characters/_index" → slug "characters"
+    const indexSlug = t.endsWith('/_index') ? t.slice(0, -7) : null;
+    const resolved = DATA.notes[t] ? t
+      : (indexSlug && DATA.notes[indexSlug]) ? indexSlug
+      : (DATA.slug_lookup?.[t.toLowerCase()] || t);
     return `<a href="#${resolved}" class="wikilink">${escHtml(text)}</a>`;
   });
   try {
