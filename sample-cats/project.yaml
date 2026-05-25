@@ -34,6 +34,8 @@ types:
       kittens:  { label: "Kittens" }
 
 addons:
+  update_indexes:
+    enabled: true
   graph:
     enabled: true
   timeline:

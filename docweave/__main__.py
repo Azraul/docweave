@@ -6,6 +6,7 @@ import sys
 from .config import load_config
 from .builder import build_index
 from .addons import run_addons
+from .update_indexes import run_update_indexes
 from .writer import write_index
 
 
@@ -22,6 +23,11 @@ def main():
     print(f"  project: {config['project'].get('name', 'Untitled')}")
     print(f"  types:   {', '.join(config['types'].keys())}")
     print(f"  output:  {config['build']['output_dir']}")
+
+    # 1.5 Regenerate _index.md files (if enabled)
+    print()
+    print("[1.5/5] Regenerating _index.md files...")
+    run_update_indexes(project_root, config)
 
     # 2. Build index
     print()

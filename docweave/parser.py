@@ -64,15 +64,24 @@ def scan_attachments(project_root: str, dir_path: str, config: dict) -> list[str
     if not os.path.isdir(abs_dir):
         return []
 
+    # Files always excluded from attachment scanning
+    always_exclude = {"project.yaml", ".docweaveignore",
+                       "Makefile", "README.md", "LICENSE"}
+
     attachments = []
     for fname in sorted(os.listdir(abs_dir)):
         if fname.startswith("."):
             continue
         if fname.endswith(".md"):
             continue
+        if fname in always_exclude:
+            continue
         if any(fnmatch(fname, p) for p in ignore_patterns):
             continue
         rel_path = os.path.join(dir_path, fname)
+        abs_item = os.path.join(abs_dir, fname)
+        if not os.path.isfile(abs_item):
+            continue
         attachments.append(rel_path)
 
     return attachments
@@ -114,13 +123,13 @@ def parse_note(project_root: str, rel_path: str, config: dict) -> dict | None:
     # Build slug
     slug = rel_path.replace("\\", "/")
     if slug.endswith("_index.md"):
-        slug = os.path.dirname(rel_path) if os.path.dirname(rel_path) else rel_path
+        dir_name = os.path.dirname(rel_path)
+        if dir_name:
+            slug = dir_name.replace("\\", "/")
+        else:
+            slug = "_index"
     else:
-        slug = rel_path.replace(".md", "")
-
-    slug = slug.replace("\\", "/")
-    if slug.startswith("./"):
-        slug = slug[2:]
+        slug = rel_path.replace(".md", "").replace("\\", "/")
 
     # Extract title: frontmatter > first heading > filename
     fm_title = fm.get("title")

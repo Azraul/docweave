@@ -72,7 +72,8 @@ make serve    # Build + serve on :8000
 │   ├── config.py          #   project.yaml loading & validation
 │   ├── parser.py          #   Frontmatter, wikilinks, note parsing
 │   ├── builder.py         #   Index building, backlinks, sidebar
-│   ├── addons.py          #   Timeline and future addons
+│   ├── addons.py          #   Timeline and future addons (post-scan)
+│   ├── update_indexes.py  #   Auto-generate _index.md files (pre-scan)
 │   └── writer.py          #   JSON output, renderer & attachment copy
 ├── renderer/             # ★ Source: shared HTML/CSS/JS renderer files
 │   ├── index.html        #   Wiki view (sidebar + note content)
@@ -91,6 +92,58 @@ make serve    # Build + serve on :8000
 The `renderer/` directory contains the **source files** for the wiki and graph views. On every build, `bin/docweave` or `make build` copies them into each project's `.site/` directory alongside the generated `index.json`. This means `.site/` is fully self-contained — you could zip it and host it on any static server, no build tools needed.
 
 > 💡 **Edit the renderer?** Change files in `renderer/`, then run `make build` to sync them into `.site/`.
+
+## Addons
+
+DocWeave supports two kinds of addons: **pre-scan** (run before notes are parsed) and **post-scan** (run after the index is built). Addons are enabled in `project.yaml` under the `addons` key.
+
+### update\_indexes (pre-scan)
+
+Auto-generates `_index.md` files in every content directory. For each directory it:
+
+1. Lists all `.md` files, grouped by frontmatter `type`
+2. Extracts the first substantive paragraph as a description (~200 chars)
+3. Links to subdirectory `_index.md` files
+4. Preserves existing frontmatter, intro text, and `## See Also` / `## Related` sections
+
+```yaml
+# project.yaml
+addons:
+  update_indexes:
+    enabled: true
+```
+
+This is invaluable for large projects — adding a new note automatically updates its parent directory's index on the next build, so you never have stale directory listings.
+
+### graph (post-scan)
+
+Enables the D3.js force-directed graph view in the browser.
+
+```yaml
+addons:
+  graph:
+    enabled: true
+```
+
+### timeline (post-scan)
+
+Builds a chronological timeline from a date field. Supports ISO dates (`format: iso`) and era strings like `~3500 BCE` (`format: era`).
+
+```yaml
+addons:
+  timeline:
+    field: born
+    format: iso
+```
+
+Or for worldbuilding projects with BCE/CE dates:
+
+```yaml
+addons:
+  timeline:
+    field: era
+    format: era
+```
 
 ## Link Validation
 
