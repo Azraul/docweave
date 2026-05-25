@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+"""DocWeave CLI — run from your project directory.
+
+Usage:
+    cd sample-cats
+    ../bin/docweave
+"""
+import sys
+import os
+
+# Add the project root (where this script lives) to the module path
+# so the docweave/ package is discoverable from any project subdirectory.
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+sys.path.insert(0, project_root)
+
+from docweave.__main__ import main
+main()

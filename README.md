@@ -30,7 +30,7 @@ The **[sample-cats/](sample-cats/)** directory is a complete demo: a wiki for a 
 ```bash
 # Build the sample-cats site
 cd sample-cats
-python3 ../build.py
+../bin/docweave
 
 # Serve it locally
 python3 -m http.server -d .site
@@ -59,7 +59,14 @@ make serve    # Build + serve on :8000
 ## Project Structure
 
 ```
-├── build.py              # Shared build pipeline (Python)
+├── docweave/              # Shared build pipeline (Python package)
+│   ├── __init__.py        #   Package init
+│   ├── __main__.py        #   CLI entry point (`python3 -m docweave`)
+│   ├── config.py          #   project.yaml loading & validation
+│   ├── parser.py          #   Frontmatter, wikilinks, note parsing
+│   ├── builder.py         #   Index building, backlinks, sidebar
+│   ├── addons.py          #   Timeline and future addons
+│   └── writer.py          #   JSON output, renderer & attachment copy
 ├── renderer/             # ★ Source: shared HTML/CSS/JS renderer files
 │   ├── index.html        #   Wiki view (sidebar + note content)
 │   ├── zettel.html       #   Graph view (D3.js force layout)
@@ -84,7 +91,7 @@ The `renderer/` directory contains the **source files** for the wiki and graph v
 1. Copy the `sample-cats/` directory or create a new one
 2. Edit `project.yaml` with your own types and fields
 3. Write markdown notes with YAML frontmatter (each needs a `type:` field)
-4. Run `python3 ../build.py` from your project directory
+4. Run `../bin/docweave` from your project directory
 
 ## Tech Stack
 
