@@ -25,6 +25,8 @@ The build pipeline reads this schema, parses all markdown files, resolves `[[wik
 
 The **[sample-cats/](sample-cats/)** directory is a complete demo: a wiki for a cat breeding family, with two entity types (`cat` and `litter`), cross-references, timeline, and a graph view.
 
+![graph-preview](/preview.png "Graph preview")
+
 ## Quick Start
 
 ```bash
@@ -59,6 +61,10 @@ make serve    # Build + serve on :8000
 ## Project Structure
 
 ```
+├── .pi/                   # Pi coding assistant config
+│   ├── settings.json     #   Project settings (points to project.yaml)
+│   └── extensions/       #   Custom tools
+│       └── docweave-link-validator.ts
 ├── bin/docweave           # CLI entry point (executable)
 ├── docweave/              # Python package — the build engine
 │   ├── __init__.py        #   Package init
@@ -85,6 +91,29 @@ make serve    # Build + serve on :8000
 The `renderer/` directory contains the **source files** for the wiki and graph views. On every build, `bin/docweave` or `make build` copies them into each project's `.site/` directory alongside the generated `index.json`. This means `.site/` is fully self-contained — you could zip it and host it on any static server, no build tools needed.
 
 > 💡 **Edit the renderer?** Change files in `renderer/`, then run `make build` to sync them into `.site/`.
+
+## Link Validation
+
+DocWeave ships a **link validator** as a pi extension at `.pi/extensions/docweave-link-validator.ts`. It scans all markdown files and reports:
+
+- **Broken wikilinks** — `[[slug]]` references that don't match any note
+- **Orphaned notes** — files with no incoming links (ignores root meta-files like README)
+- **Duplicate slugs** — the same slug used by multiple files
+
+In the pi coding assistant, just ask:
+
+```
+Check for broken links
+```
+
+Or use the command directly:
+
+```
+/validate-links --check summary
+/validate-links --check wikilinks
+/validate-links --check orphans
+/validate-links --check duplicates
+```
 > ⚡ **Quick preview**: run `make serve` from the project root, then open `http://localhost:8000`.
 
 ## Adding a New Project
@@ -104,5 +133,3 @@ The `renderer/` directory contains the **source files** for the wiki and graph v
 ## Design Philosophy
 
 > The schema *is* the template. A new project type requires no code — just a `project.yaml` and content files.
-
-See [plan.md](plan.md) for the full design document, alternative approaches considered, and open questions.
