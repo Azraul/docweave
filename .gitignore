@@ -1,0 +1,16 @@
+# Generated build output
+.site/
+**/.site/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

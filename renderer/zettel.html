@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocWeave — Graph View</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+<header>
+  <h1 id="project-title">DocWeave</h1>
+  <div style="flex:1"></div>
+  <div id="view-toggle">
+    <a href="index.html">Wiki</a>
+    <a href="zettel.html" class="active">Graph</a>
+  </div>
+</header>
+
+<div id="graph-container">
+  <div id="graph-search-wrap">
+    <input type="search" id="graph-search" placeholder="Search in graph…" spellcheck="false">
+  </div>
+  <div id="graph-filters"></div>
+  <div id="graph-hint">Scroll to zoom · Drag to pan · Drag nodes</div>
+  <div id="graph-preview">
+    <button class="gp-close" onclick="closePreview()">✕</button>
+    <div class="gp-title"></div>
+    <div class="gp-type"></div>
+    <div class="gp-excerpt"></div>
+    <a class="gp-open" href="#" target="_blank">Open in wiki →</a>
+  </div>
+</div>
+
+<script>
+let DATA = null;
+let SVG, SIMULATION, LINK, NODE, LABEL;
+let NODE_MAP = {};
+let SELECTED_SLUG = null;
+
+(async function init() {
+  try {
+    const resp = await fetch('index.json');
+    DATA = await resp.json();
+    const proj = DATA.project || {};
+    document.getElementById('project-title').textContent = proj.name || 'DocWeave';
+    buildGraph();
+    buildFilters();
+    setupSearch();
+  } catch (err) {
+    document.getElementById('graph-container').innerHTML =
+      `<div id="error"><h2>Failed to load data</h2><p>${err.message}</p></div>`;
+  }
+})();
+
+function buildGraph() {
+  const container = document.getElementById('graph-container');
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+  const notesMap = DATA.notes || {};
+  const slugs = Object.keys(notesMap);
+
+  // Node sizing by backlink count
+  const linkCounts = {};
+  for (const slug of slugs) {
+    linkCounts[slug] = (notesMap[slug].links_in || []).length;
+  }
+  const maxLinks = Math.max(1, ...Object.values(linkCounts));
+
+  const nodes = slugs.map(slug => {
+    const n = notesMap[slug];
+    const ti = (DATA.types_config || {})[n.type] || {};
+    return {
+      slug,
+      title: n.title || n.h1 || slug,
+      type: n.type,
+      typeConfig: ti,
+      linksIn: linkCounts[slug] || 0,
+      radius: 4 + (linkCounts[slug] / maxLinks) * 14,
+      excerpt: (n.body || '').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').slice(0, 200),
+    };
+  });
+
+  const slugToIdx = {};
+  nodes.forEach((n, i) => { slugToIdx[n.slug] = i; });
+
+  // Edges from wikilinks
+  const edgeSet = new Set();
+  const links = [];
+  for (const slug of slugs) {
+    const note = notesMap[slug];
+    const sourceIdx = slugToIdx[slug];
+    if (sourceIdx === undefined) continue;
+    for (const outSlug of (note.links_out || [])) {
+      const resolved = (DATA.notes[outSlug] ? outSlug : (DATA.slug_lookup?.[outSlug.toLowerCase()] || null));
+      if (!resolved || slugToIdx[resolved] === undefined) continue;
+      const targetIdx = slugToIdx[resolved];
+      const key = [Math.min(sourceIdx, targetIdx), Math.max(sourceIdx, targetIdx)].join('-');
+      if (edgeSet.has(key)) continue;
+      edgeSet.add(key);
+      links.push({ source: sourceIdx, target: targetIdx });
+    }
+  }
+
+  NODE_MAP = {};
+  nodes.forEach(n => { NODE_MAP[n.slug] = n; });
+
+  // SVG
+  SVG = d3.select('#graph-container')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+  const g = SVG.append('g');
+
+  const zoom = d3.zoom()
+    .scaleExtent([0.1, 4])
+    .on('zoom', (event) => { g.attr('transform', event.transform); });
+  SVG.call(zoom);
+
+  // Links
+  LINK = g.append('g').selectAll('line').data(links).join('line').attr('class', 'graph-link');
+
+  // Node groups
+  const nodeGroup = g.append('g').selectAll('g').data(nodes).join('g')
+    .attr('class', 'graph-node')
+    .call(d3.drag()
+      .on('start', dragStarted)
+      .on('drag', dragged)
+      .on('end', dragEnded)
+    );
+
+  NODE = nodeGroup.append('circle')
+    .attr('r', d => d.radius)
+    .attr('fill', d => d.typeConfig.color || '#888')
+    .on('click', (event, d) => onNodeClick(d));
+
+  LABEL = nodeGroup.append('text')
+    .text(d => d.title.length > 28 ? d.title.slice(0, 26) + '…' : d.title)
+    .attr('dx', d => d.radius + 2)
+    .attr('dy', '0.35em')
+    .style('font-size', d => Math.max(7, Math.min(10, d.radius * 0.9)) + 'px');
+
+  // Simulation
+  SIMULATION = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).distance(90).strength(0.3))
+    .force('charge', d3.forceManyBody().strength(-150))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(d => d.radius + 12))
+    .on('tick', () => {
+      LINK
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+      nodeGroup.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+  // Initial fit
+  setTimeout(() => {
+    const bounds = g.node()?.getBBox();
+    if (bounds && bounds.width > 0) {
+      const scale = Math.min(width / (bounds.width + 100), height / (bounds.height + 100), 1.5);
+      const tx = width / 2 - scale * (bounds.x + bounds.width / 2);
+      const ty = height / 2 - scale * (bounds.y + bounds.height / 2);
+      SVG.transition().duration(500).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+    }
+  }, 1000);
+}
+
+function onNodeClick(d) {
+  SELECTED_SLUG = d.slug;
+  highlightNode(d.slug);
+  showPreview(d);
+  window.location.hash = d.slug;
+}
+
+function highlightNode(slug) {
+  const nodeData = NODE_MAP[slug];
+  if (!nodeData) return;
+
+  const linkedSlugs = new Set([slug]);
+  const links = SIMULATION ? SIMULATION.force('link').links() : [];
+  for (const l of links) {
+    const s = typeof l.source === 'object' ? l.source.slug : l.source;
+    const t = typeof l.target === 'object' ? l.target.slug : l.target;
+    if (s === slug) linkedSlugs.add(t);
+    if (t === slug) linkedSlugs.add(s);
+  }
+
+  SVG.selectAll('.graph-node')
+    .classed('dimmed', d => !linkedSlugs.has(d.slug))
+    .classed('highlighted', d => d.slug === slug);
+  SVG.selectAll('.graph-link')
+    .classed('dimmed', d => {
+      const s = typeof d.source === 'object' ? d.source.slug : d.source;
+      const t = typeof d.target === 'object' ? d.target.slug : d.target;
+      return !(s === slug || t === slug);
+    })
+    .classed('highlighted', d => {
+      const s = typeof d.source === 'object' ? d.source.slug : d.source;
+      const t = typeof d.target === 'object' ? d.target.slug : d.target;
+      return s === slug || t === slug;
+    });
+}
+
+function showPreview(d) {
+  const panel = document.getElementById('graph-preview');
+  const ti = d.typeConfig;
+  const color = ti.color || '#888';
+  const label = ti.label || 'Note';
+  panel.querySelector('.gp-title').textContent = d.title;
+  panel.querySelector('.gp-type').innerHTML = `<span class="type-badge" style="background:${color}">${label}</span>`;
+  panel.querySelector('.gp-excerpt').textContent = d.excerpt;
+  panel.querySelector('.gp-open').href = `index.html#${d.slug}`;
+  panel.classList.add('open');
+}
+
+function closePreview() {
+  document.getElementById('graph-preview').classList.remove('open');
+  if (SVG) {
+    SVG.selectAll('.graph-node').classed('dimmed', false).classed('highlighted', false);
+    SVG.selectAll('.graph-link').classed('dimmed', false).classed('highlighted', false);
+  }
+  SELECTED_SLUG = null;
+}
+
+function dragStarted(event, d) {
+  if (!event.active) SIMULATION.alphaTarget(0.3).restart();
+  d.fx = d.x;
+  d.fy = d.y;
+}
+function dragged(event, d) {
+  d.fx = event.x;
+  d.fy = event.y;
+}
+function dragEnded(event, d) {
+  if (!event.active) SIMULATION.alphaTarget(0);
+  d.fx = null;
+  d.fy = null;
+}
+
+// ── Filters ────────────────────────────────────────────────────────
+function buildFilters() {
+  const container = document.getElementById('graph-filters');
+  const typeCounts = {};
+  for (const slug in (DATA.notes || {})) {
+    const t = DATA.notes[slug].type || 'default';
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  }
+
+  const sorted = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+  const tc = DATA.types_config || {};
+  let html = '<div style="font-weight:600;margin-bottom:0.25rem;color:var(--text-secondary)">Filter</div>';
+  for (const [type, count] of sorted) {
+    const info = tc[type] || {};
+    html += `<label>
+      <input type="checkbox" class="filter-cb" data-type="${type}" checked>
+      <span>${info.icon || '📄'} ${info.label || type}</span>
+      <span class="filter-count">${count}</span>
+    </label>`;
+  }
+  container.innerHTML = html;
+  container.querySelectorAll('.filter-cb').forEach(cb => {
+    cb.addEventListener('change', applyFilters);
+  });
+}
+
+function applyFilters() {
+  const activeTypes = new Set();
+  document.querySelectorAll('.filter-cb:checked').forEach(cb => activeTypes.add(cb.dataset.type));
+  if (!SVG) return;
+  SVG.selectAll('.graph-node')
+    .style('display', d => activeTypes.has(d.type) ? null : 'none');
+  SVG.selectAll('.graph-link')
+    .style('display', d => {
+      const s = typeof d.source === 'object' ? d.source.slug : d.source;
+      const t = typeof d.target === 'object' ? d.target.slug : d.target;
+      const sNode = NODE_MAP[s];
+      const tNode = NODE_MAP[t];
+      return (sNode && tNode && activeTypes.has(sNode.type) && activeTypes.has(tNode.type)) ? null : 'none';
+    });
+}
+
+// ── Search in Graph ────────────────────────────────────────────────
+function setupSearch() {
+  const input = document.getElementById('graph-search');
+  let timeout = null;
+  input.addEventListener('input', () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => doGraphSearch(input.value.trim().toLowerCase()), 200);
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { input.value = ''; doGraphSearch(''); input.blur(); }
+    if (e.key === 'Enter') {
+      const q = input.value.trim().toLowerCase();
+      if (!q || !SIMULATION) return;
+      for (const n of SIMULATION.nodes()) {
+        if ((n.title || '').toLowerCase().includes(q)) {
+          const bounds = SVG.node()?.getBBox();
+          if (bounds) {
+            SVG.transition().duration(500).call(
+              d3.zoom().transform,
+              d3.zoomIdentity.translate(SVG.attr('width')/2 - n.x * 1.5, SVG.attr('height')/2 - n.y * 1.5).scale(1.5)
+            );
+          }
+          onNodeClick(n);
+          return;
+        }
+      }
+    }
+  });
+}
+
+function doGraphSearch(query) {
+  if (!query || !SVG) {
+    SVG?.selectAll('.graph-node').style('opacity', 1);
+    SVG?.selectAll('.graph-link').style('opacity', null);
+    return;
+  }
+  SVG.selectAll('.graph-node').style('opacity', d =>
+    (d.title || '').toLowerCase().includes(query) ? 1 : 0.12
+  );
+  SVG.selectAll('.graph-link').style('opacity', d => {
+    const s = typeof d.source === 'object' ? d.source.slug : d.source;
+    const t = typeof d.target === 'object' ? d.target.slug : d.target;
+    const sNode = NODE_MAP[s];
+    const tNode = NODE_MAP[t];
+    const sMatch = sNode && (sNode.title || '').toLowerCase().includes(query);
+    const tMatch = tNode && (tNode.title || '').toLowerCase().includes(query);
+    return (sMatch || tMatch) ? 0.4 : 0.04;
+  });
+}
+
+// ── Resize ─────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  if (SIMULATION) {
+    const container = document.getElementById('graph-container');
+    SIMULATION.force('center', d3.forceCenter(container.clientWidth / 2, container.clientHeight / 2));
+    SIMULATION.alpha(0.3).restart();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePreview();
+});
+</script>
+</body>
+</html>

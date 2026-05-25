@@ -1,0 +1,41 @@
+project:
+  name: "Cat Compendium"
+  tagline: "A wiki of our feline family"
+
+build:
+  content_dir: "."
+  output_dir: ".site"
+  exclude_dirs:
+    - ".pi"
+    - ".git"
+  ignore:
+    - "*.tmp"
+    - "*.bak"
+
+types:
+  cat:
+    icon: "🐱"
+    color: "#e67e22"
+    label: "Cat"
+    fields:
+      sex:      { label: "Sex" }
+      color:    { label: "Color" }
+      title:    { label: "Title" }
+      born:     { label: "Born", type: date }
+      parents:  { label: "Parents" }
+      children: { label: "Children" }
+  litter:
+    icon: "🧶"
+    color: "#9b59b6"
+    label: "Litter"
+    fields:
+      year:     { label: "Year", type: date }
+      parents:  { label: "Parents" }
+      kittens:  { label: "Kittens" }
+
+addons:
+  graph:
+    enabled: true
+  timeline:
+    field: born
+    format: iso

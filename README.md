@@ -1,0 +1,100 @@
+# DocWeave — Schema-Driven Documentation
+
+**DocWeave** is a schema-driven static-site generator for personal wikis, knowledge bases, and documentation projects. It turns markdown notes with YAML frontmatter into a browsable wiki with backlinks, a force-directed graph view, timelines, and automatic attachment handling — all driven by a single YAML schema.
+
+## How It Works
+
+Instead of templates or hardcoded entity types, a `project.yaml` file defines your project's data model:
+
+```yaml
+# project.yaml
+types:
+  cat:
+    icon: "🐱"
+    color: "#e67e22"
+    label: "Cat"
+    fields:
+      born:   { label: "Born", type: date }
+      color:  { label: "Color" }
+      parents:{ label: "Parents" }
+```
+
+The build pipeline reads this schema, parses all markdown files, resolves `[[wikilinks]]`, builds backlinks, and generates a JSON index. The static HTML/JS renderer then adapts everything — type badges, field pills, dates, timeline nav, graph colors — from that schema at runtime. No templates to create, no code to change per project.
+
+## Demo
+
+The **[sample-cats/](sample-cats/)** directory is a complete demo: a wiki for a cat breeding family, with two entity types (`cat` and `litter`), cross-references, timeline, and a graph view.
+
+## Quick Start
+
+```bash
+# Build the sample-cats site
+cd sample-cats
+python3 ../build.py
+
+# Serve it locally
+python3 -m http.server -d .site
+# → Open http://localhost:8000
+```
+
+Or use `make` from the root:
+
+```bash
+make build    # Build sample-cats
+make serve    # Build + serve on :8000
+```
+
+## Features
+
+| Feature | Description |
+|---|---|
+| **Schema-driven** | Types, field roles (tag vs. date), icons, colors — all in one YAML file |
+| **Wikilinks** | `[[note-title]]` and `[[path/to/note|display text]]` with backlink resolution |
+| **Graph view** | D3.js force-directed graph with type filtering, search, and preview |
+| **Timeline addon** | Chronological navigation from any date field |
+| **Attachments** | Binary files (PDFs, images) beside `_index.md` auto-discovered and copied |
+| **Type badges** | Icon + color-coded type labels, rendered from schema |
+| **Search** | Full-text search across titles, bodies, and all frontmatter fields |
+
+## Project Structure
+
+```
+├── build.py              # Shared build pipeline (Python)
+├── renderer/             # ★ Source: shared HTML/CSS/JS renderer files
+│   ├── index.html        #   Wiki view (sidebar + note content)
+│   ├── zettel.html       #   Graph view (D3.js force layout)
+│   └── style.css         #   Dark theme
+├── sample-cats/          # Demo project — a cat breeder's wiki
+│   ├── project.yaml      #   Schema definition (types, fields, addons)
+│   ├── cats/             #   Notes of type "cat"
+│   ├── litters/          #   Notes of type "litter"
+│   └── .site/            # ★ Generated output (gitignored)
+├── Makefile              # Build and serve shortcuts
+├── plan.md               # Full design document
+└── README.md
+```
+
+The `renderer/` directory contains the **source files** for the wiki and graph views. On every build, `build.py` copies them into each project's `.site/` directory alongside the generated `index.json`. This means `.site/` is fully self-contained — you could zip it and host it on any static server, no build tools needed.
+
+> 💡 **Edit the renderer?** Change files in `renderer/`, then run `make build` to sync them into `.site/`.
+> ⚡ **Quick preview**: run `make serve` from the project root, then open `http://localhost:8000`.
+
+## Adding a New Project
+
+1. Copy the `sample-cats/` directory or create a new one
+2. Edit `project.yaml` with your own types and fields
+3. Write markdown notes with YAML frontmatter (each needs a `type:` field)
+4. Run `python3 ../build.py` from your project directory
+
+## Tech Stack
+
+- **Build:** Python + PyYAML (stdlib except `yaml`)
+- **Render:** Vanilla HTML + CSS + JavaScript
+- **Graph:** D3.js v7 (loaded from CDN)
+- **Markdown:** marked.js (loaded from CDN)
+
+## Design Philosophy
+
+> The schema *is* the template. A new project type requires no code — just a `project.yaml` and content files.
+
+See [plan.md](plan.md) for the full design document, alternative approaches considered, and open questions.

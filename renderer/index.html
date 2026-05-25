@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocWeave — Wiki</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+</head>
+<body>
+
+<header>
+  <button id="sidebar-toggle" title="Toggle sidebar">☰</button>
+  <h1 id="project-title">DocWeave</h1>
+  <div id="search-wrap">
+    <input type="search" id="search" placeholder="Search notes…" spellcheck="false">
+    <div id="search-results"></div>
+  </div>
+  <button id="random-btn" title="Random note">🎲</button>
+  <div id="view-toggle">
+    <a href="index.html" class="active">Wiki</a>
+    <a href="zettel.html">Graph</a>
+  </div>
+</header>
+
+<div id="layout">
+  <nav id="sidebar"></nav>
+  <main id="content">
+    <div id="loading">
+      <div class="spinner"></div>
+      Loading notes…
+    </div>
+  </main>
+</div>
+
+<script>
+let DATA = null;
+let CURRENT_SLUG = null;
+let SEARCH_INDEX = [];
+
+(async function init() {
+  try {
+    const resp = await fetch('index.json');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    DATA = await resp.json();
+    buildSearchIndex();
+    renderSidebar();
+    handleNavigation();
+  } catch (err) {
+    const loadingEl = document.getElementById('loading');
+    document.getElementById('content').innerHTML =
+      `<div id="error"><h2>Failed to load notes</h2><p>${err.message}</p></div>`;
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+})();
+
+// ── Search Index ──────────────────────────────────────────────────
+function buildSearchIndex() {
+  SEARCH_INDEX = [];
+  for (const [slug, note] of Object.entries(DATA.notes)) {
+    const haystack = [
+      note.title || '',
+      note.h1 || '',
+      note.body || '',
+      ...Object.entries(note)
+        .filter(([k]) => !k.startsWith('_') && !['slug','title','h1','type','path','body','links_out','links_in','attachments'].includes(k))
+        .map(([,v]) => Array.isArray(v) ? v.join(' ') : String(v)),
+    ].join(' ').toLowerCase();
+    SEARCH_INDEX.push({ slug, haystack, note });
+  }
+}
+
+// ── Hash Navigation ───────────────────────────────────────────────
+function handleNavigation() {
+  function onHash() {
+    const hash = window.location.hash.slice(1);
+    if (hash && DATA.notes[hash]) {
+      showNote(hash);
+      return;
+    }
+    showWelcome();
+  }
+  window.addEventListener('hashchange', onHash);
+  onHash();
+}
+
+// ── Welcome ───────────────────────────────────────────────────────
+function showWelcome() {
+  CURRENT_SLUG = null;
+  const proj = DATA.project || {};
+  const notes = Object.values(DATA.notes);
+
+  // Type breakdown
+  const counts = {};
+  for (const n of notes) {
+    const t = n.type || 'default';
+    counts[t] = (counts[t] || 0) + 1;
+  }
+  const tc = DATA.types_config || {};
+  const breakdown = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([t, c]) => {
+      const info = tc[t] || {};
+      return `${info.icon || ''} ${info.label || t}s: ${c}`;
+    }).join(' · ');
+
+  const tl = DATA.addons?.timeline?.entries || [];
+
+  document.getElementById('content').innerHTML = `
+    <div id="welcome">
+      <h1>${escHtml(proj.name || 'Untitled')}</h1>
+      ${proj.tagline ? `<p class="tagline">${escHtml(proj.tagline)}</p>` : ''}
+      <div class="stats">
+        <div class="stat"><div class="stat-num">${notes.length}</div><div class="stat-label">Notes</div></div>
+        <div class="stat"><div class="stat-num">${tl.length}</div><div class="stat-label">Timeline entries</div></div>
+        <div class="stat"><div class="stat-num">${Object.keys(tc).length}</div><div class="stat-label">Types</div></div>
+      </div>
+      <p class="hint">${breakdown}</p>
+      <p class="hint" style="margin-top:1rem">Select a note from the sidebar or search above.</p>
+    </div>`;
+  updateActiveLeaf(null);
+  document.title = `${proj.name || 'DocWeave'}`;
+}
+
+// ── Show Note ─────────────────────────────────────────────────────
+function showNote(slug) {
+  const note = DATA.notes[slug];
+  if (!note) { showWelcome(); return; }
+  CURRENT_SLUG = slug;
+
+  const tc = DATA.types_config || {};
+  const ti = tc[note.type] || {};
+  const color = ti.color || '#888';
+  const icon = ti.icon || '📄';
+  const label = ti.label || note.type || 'Note';
+
+  // Build metadata pills from schema fields
+  let metaHtml = `<span class="type-badge" style="background:${color}">${icon} ${escHtml(label)}</span>`;
+
+  const fieldSchemas = ti.fields || {};
+  for (const [key, fieldDef] of Object.entries(fieldSchemas)) {
+    const val = note[key];
+    if (val === undefined || val === null || key === 'title') continue;
+    if (fieldDef.type === 'date') {
+      metaHtml += `<span class="meta-era">${escHtml(String(val))}</span>`;
+    } else {
+      const vals = Array.isArray(val) ? val : [String(val)];
+      for (const v of vals) {
+        // Check if value looks like a wikilink target (exists in notes or slug_lookup)
+        const vKey = v.toLowerCase();
+        const targetSlug = DATA.slug_lookup?.[vKey] || (DATA.notes[v] ? v : null);
+        if (targetSlug && key !== 'sex') {
+          metaHtml += `<span class="meta-tag"><a href="#${targetSlug}" class="internal-link">${escHtml(v)}</a></span>`;
+        } else {
+          metaHtml += `<span class="meta-tag">${escHtml(v)}</span>`;
+        }
+      }
+    }
+  }
+
+  // Render body: wikilinks → anchors, then markdown
+  const contentHtml = renderContent(note.body || '');
+
+  // Backlinks
+  let backlinksHtml = '';
+  const bl = note.links_in || [];
+  if (bl.length > 0) {
+    const blItems = bl.map(s => {
+      const blNote = DATA.notes[s];
+      return `<a href="#${s}" class="bl-item">${escHtml(blNote ? (blNote.title || blNote.h1 || s) : s)}</a>`;
+    }).join('');
+    backlinksHtml = `<div id="backlinks"><h3>Referenced by ${bl.length} note${bl.length !== 1 ? 's' : ''}</h3><div class="bl-list">${blItems}</div></div>`;
+  } else {
+    backlinksHtml = `<div id="backlinks"><h3>Referenced by</h3><p class="bl-none">No other notes link here.</p></div>`;
+  }
+
+  // Timeline nav
+  let timelineNavHtml = '';
+  const tl = DATA.addons?.timeline?.entries || [];
+  if (tl.length > 0) {
+    const idx = tl.findIndex(e => e.slug === slug);
+    if (idx !== -1) {
+      const prev = idx > 0 ? tl[idx - 1] : null;
+      const next = idx < tl.length - 1 ? tl[idx + 1] : null;
+      timelineNavHtml = '<div id="timeline-nav">';
+      timelineNavHtml += prev
+        ? `<a href="#${prev.slug}">← ${escHtml(prev.title)}</a>`
+        : `<span class="tl-disabled">← Earliest</span>`;
+      timelineNavHtml += next
+        ? `<a href="#${next.slug}">${escHtml(next.title)} →</a>`
+        : `<span class="tl-disabled">Latest →</span>`;
+      timelineNavHtml += '</div>';
+    }
+  }
+
+  // Attachments
+  let attachmentsHtml = '';
+  if (note.attachments && note.attachments.length > 0) {
+    attachmentsHtml = '<div id="attachments"><h3>Attachments</h3><ul>';
+    for (const att of note.attachments) {
+      attachmentsHtml += `<li><a href="${att}" download>📎 ${att.split('/').pop()}</a></li>`;
+    }
+    attachmentsHtml += '</ul></div>';
+  }
+
+  // Assemble
+  const displayTitle = note.h1 || note.title || slug.split('/').pop();
+  document.getElementById('content').innerHTML = `
+    <div class="note-title">${escHtml(displayTitle)}</div>
+    <div class="note-meta">${metaHtml}</div>
+    <div class="note-body">${contentHtml}</div>
+    ${attachmentsHtml}
+    ${backlinksHtml}
+    ${timelineNavHtml}
+  `;
+  updateActiveLeaf(slug);
+  document.title = `${displayTitle} — ${DATA.project?.name || 'DocWeave'}`;
+}
+
+// ── Render Content (wikilinks → markdown) ─────────────────────────
+function renderContent(md) {
+  if (!md) return '';
+  let html = md.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, target, display) => {
+    const t = target.trim();
+    const text = display || t.split('/').pop().replace(/_/g, ' ');
+    // Resolve via slug_lookup or direct note key
+    const resolved = DATA.notes[t] ? t : (DATA.slug_lookup?.[t.toLowerCase()] || t);
+    return `<a href="#${resolved}" class="wikilink">${escHtml(text)}</a>`;
+  });
+  try {
+    html = marked.parse(html, { breaks: true, gfm: true });
+  } catch (e) {
+    html = `<pre>${escHtml(html)}</pre>`;
+  }
+  return html;
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────
+function renderSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const tree = DATA.sidebar_tree || [];
+  sidebar.innerHTML = tree.map(node => renderTreeNode(node, 0)).join('');
+
+  sidebar.querySelectorAll('.tree-dir-header').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      const children = el.nextElementSibling;
+      if (children) {
+        children.classList.toggle('collapsed');
+        el.querySelector('.arrow')?.classList.toggle('open');
+      }
+    });
+  });
+
+  sidebar.querySelectorAll('.tree-leaf').forEach(el => {
+    el.addEventListener('click', () => {
+      const slug = el.dataset.slug;
+      if (slug) window.location.hash = slug;
+    });
+  });
+}
+
+function renderTreeNode(node, depth) {
+  if (node.type === 'directory') {
+    const hasNote = !!node.note_slug;
+    const dirTitle = hasNote ? (node.title || node.name) : node.name;
+    let h = `<div class="tree-dir-header" data-depth="${depth}">`;
+    h += `<span class="arrow open">▶</span>`;
+    h += `<span class="dir-icon">📁</span>`;
+    if (hasNote) {
+      h += `<a href="#${node.note_slug}" class="dir-name internal-link" onclick="event.stopPropagation(); window.location.hash='${node.note_slug}'">${escHtml(dirTitle)}</a>`;
+    } else {
+      h += `<span class="dir-name">${escHtml(dirTitle)}</span>`;
+    }
+    h += `</div>`;
+    const childrenHtml = (node.children || []).map(c => renderTreeNode(c, depth + 1)).join('');
+    return `<div class="tree-node">${h}<div class="tree-children">${childrenHtml}</div></div>`;
+  } else {
+    const tc = DATA.types_config?.[node.note_type] || {};
+    const icon = tc.icon || '📄';
+    const activeClass = node.slug === CURRENT_SLUG ? ' active' : '';
+    return `<div class="tree-leaf${activeClass}" data-slug="${node.slug}"><span class="leaf-icon">${icon}</span><span class="leaf-name">${escHtml(node.name)}</span></div>`;
+  }
+}
+
+function updateActiveLeaf(slug) {
+  document.querySelectorAll('.tree-leaf').forEach(el => {
+    el.classList.toggle('active', el.dataset.slug === slug);
+  });
+}
+
+// ── Search ─────────────────────────────────────────────────────────
+const searchInput = document.getElementById('search');
+const searchResults = document.getElementById('search-results');
+let searchTimeout = null;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(doSearch, 150);
+});
+
+searchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { clearSearch(); searchInput.blur(); }
+  if (e.key === 'Enter') {
+    const first = searchResults.querySelector('.search-item');
+    if (first) first.click();
+  }
+});
+
+function doSearch() {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) { searchResults.classList.remove('visible'); return; }
+
+  const results = [];
+  for (const entry of SEARCH_INDEX) {
+    if (results.length >= 30) break;
+    if (entry.haystack.includes(q)) results.push(entry);
+  }
+
+  if (results.length === 0) {
+    searchResults.innerHTML = `<div class="search-item" style="color:var(--text-muted);font-style:italic">No results</div>`;
+    searchResults.classList.add('visible');
+    return;
+  }
+
+  searchResults.innerHTML = results.map(r => {
+    const n = r.note;
+    const ti = DATA.types_config?.[n.type] || {};
+    const color = ti.color || '#888';
+    const label = ti.label || n.type || 'Note';
+    let excerpt = (n.body || '').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1');
+    const idx = excerpt.toLowerCase().indexOf(q);
+    if (idx > 100) excerpt = '…' + excerpt.slice(idx - 80, idx + 180) + '…';
+    else if (excerpt.length > 250) excerpt = excerpt.slice(0, 250) + '…';
+    return `<div class="search-item" onclick="navigateSearch('${r.slug}')">
+      <div class="si-title">
+        <span class="si-type" style="background:${color}">${label}</span>
+        ${escHtml(n.title || n.h1 || r.slug)}
+      </div>
+      <div class="si-excerpt">${escHtml(excerpt)}</div>
+    </div>`;
+  }).join('');
+  searchResults.classList.add('visible');
+}
+
+function navigateSearch(slug) {
+  clearSearch();
+  window.location.hash = slug;
+}
+
+function clearSearch() {
+  searchInput.value = '';
+  searchResults.classList.remove('visible');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#search-wrap')) searchResults.classList.remove('visible');
+});
+
+// ── Random ────────────────────────────────────────────────────────
+document.getElementById('random-btn').addEventListener('click', () => {
+  const slugs = Object.keys(DATA.notes);
+  window.location.hash = slugs[Math.floor(Math.random() * slugs.length)];
+});
+
+// ── Sidebar Toggle ────────────────────────────────────────────────
+document.getElementById('sidebar-toggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('hidden');
+});
+
+// ── Helpers ────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
