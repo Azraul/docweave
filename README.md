@@ -59,9 +59,10 @@ make serve    # Build + serve on :8000
 ## Project Structure
 
 ```
-├── docweave/              # Shared build pipeline (Python package)
+├── bin/docweave           # CLI entry point (executable)
+├── docweave/              # Python package — the build engine
 │   ├── __init__.py        #   Package init
-│   ├── __main__.py        #   CLI entry point (`python3 -m docweave`)
+│   ├── __main__.py        #   Entry: `python3 -m docweave`
 │   ├── config.py          #   project.yaml loading & validation
 │   ├── parser.py          #   Frontmatter, wikilinks, note parsing
 │   ├── builder.py         #   Index building, backlinks, sidebar
@@ -81,7 +82,7 @@ make serve    # Build + serve on :8000
 └── README.md
 ```
 
-The `renderer/` directory contains the **source files** for the wiki and graph views. On every build, `build.py` copies them into each project's `.site/` directory alongside the generated `index.json`. This means `.site/` is fully self-contained — you could zip it and host it on any static server, no build tools needed.
+The `renderer/` directory contains the **source files** for the wiki and graph views. On every build, `bin/docweave` or `make build` copies them into each project's `.site/` directory alongside the generated `index.json`. This means `.site/` is fully self-contained — you could zip it and host it on any static server, no build tools needed.
 
 > 💡 **Edit the renderer?** Change files in `renderer/`, then run `make build` to sync them into `.site/`.
 > ⚡ **Quick preview**: run `make serve` from the project root, then open `http://localhost:8000`.
