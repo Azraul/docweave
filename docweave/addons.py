@@ -67,6 +67,9 @@ def run_timeline_addon(index: dict, config: dict, project_root: str):
 def _era_sort_key(raw: str) -> str:
     """Convert era strings like '~3500 BCE', '~1350 CE' into a sortable key.
 
+    Handles ranges: '~700–900 CE' extracts the start year (~700).
+    Handles multi-year: '1489 CE, 1493 CE' extracts the last year (1493).
+
     Produces a string that sorts chronologically (oldest first) when sorted
     lexicographically. BCE entries get prefix 0, CE entries get prefix 1.
     """
@@ -74,7 +77,10 @@ def _era_sort_key(raw: str) -> str:
         return "zzzz"
 
     s = raw.strip().lstrip("~").strip()
-    parts = s.split()
+
+    # Split on whitespace AND on en-dash/em-dash/hyphen ranges
+    # so "700–900" becomes ["700", "900"] and we can extract the first year.
+    parts = re.split(r"[\s–—-]+", s)
     year = 0
     bc = False
 
