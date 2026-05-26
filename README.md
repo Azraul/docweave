@@ -1,42 +1,80 @@
 # DocWeave — LLM Wiki Generator
 
-**DocWeave** turns markdown notes with YAML frontmatter into two things:
+**DocWeave** turns markdown notes into a knowledge base that both **humans and LLMs** can navigate.
 
-1. A **browsable static wiki** — type badges, graph view, timeline, backlinks, search
-2. A **machine-ready knowledge base** — structured `index.json`, auto-generated directory indexes, and short semantic descriptions in every note's frontmatter
+For **people**: a browsable static site with type badges, graph view, timeline, and backlinks.  
+For **LLMs**: structured `index.json`, auto-generated directory indexes, and short semantic `description` fields in every note's frontmatter.
 
-All driven by a single `project.yaml` schema. No templates, no code per project.
+You write atomic notes with YAML frontmatter. DocWeave builds the wiki — and the knowledge structure that an LLM agent can traverse.
 
-You write notes. DocWeave builds a wiki for humans *and* an ingestible dataset for LLMs.
+## Why an LLM Wiki?
 
-## Demo
+Andrej Karpathy described the vision: a personal knowledge base that an LLM can query like a database. But dumping raw PDFs, images, and random files doesn't work — LLMs can't parse binary formats, and unstructured data is invisible to them.
 
-The **[sample-cats/](sample-cats/)** directory is a complete demo: a wiki for a cat breeding family with two entity types (`cat` and `litter`), cross-references, timeline, and a graph view.
+The alternative: **atomic notes with structured metadata, organized in a hierarchical directory tree with semantic descriptions at every level.**
 
-Open `sample-cats/cats/esbeth.md` to see the frontmatter pattern:
+An LLM agent navigating a DocWeave knowledge base reads one `_index.md` per level, sees what's inside, and drills deeper using `[[wikilinks]]`. It never touches a PDF or image — the `.md` notes describe everything.
 
-```yaml
----
-type: cat
-sex: female
-color: chocolate point
-title: Junior Champion
-born: "2022"
-children: [Bert, Bella, Bia]
-description: "Chocolate point female, Junior Champion, dam of Bert, Bella, and Bia"
----
+## Demo: sample-knowledge
+
+The **[sample-knowledge/](sample-knowledge/)** directory is a complete, working knowledge base. Build it and open `.site/` in a browser:
+
+```bash
+cd sample-knowledge
+../bin/docweave
+
+# Or from the project root:
+make build
 ```
 
-That `description` field — short, factual, machine-friendly — is what makes every note LLM-ready.
+**What's inside:**
+
+```
+sample-knowledge/
+  _index.md                         ← Root: "My personal knowledge base"
+  project.yaml                      ← One config to rule them all
+
+  people/
+    samuel-johnson.md               ← S.J. — lexicographer, wit, accidental meme
+
+  research/
+    ai/
+      papers/
+        attention-is-all-you-need/  ← Vaswani et al. 2017 — Transformer paper
+          _index.md                 ← Folder entity, with description
+          abstract.md               ← Atomic concept notes inside
+          multi-head-attention.md
+          positional-encoding.md
+        resnet/                     ← He et al. 2015 — Deep residual learning
+          _index.md
+          abstract.md
+          skip-connections.md
+        deepseek-v4/                ← DeepSeek-V4 MoE preview
+          _index.md
+          abstract.md
+          on-policy-distillation.md
+    projects/
+      docweave/                     ← The tool that built this knowledge base
+        _index.md
+        architecture.md
+        index-propagation.md
+
+  podcasts/
+    hardcore-history-prophets-of-doom.md  ← Dan Carlin on the Münster Rebellion
+```
+
+The three paper folders (`attention-is-all-you-need`, `resnet`, `deepseek-v4`) demonstrate the core pattern: **a folder per entity, with an `_index.md` as the front door and atomic notes inside.**
+
+Each `_index.md` has a `description` in its frontmatter. Those descriptions propagate upward through the directory tree — so `research/_index.md` shows summaries from `research/ai/`, which shows summaries from `research/ai/papers/`, which shows summaries from each paper folder. An LLM reads one file per level and understands the full shape.
 
 ## Quick Start
 
 ```bash
-# Build the sample-cats site
-cd sample-cats
+# Build the sample
+cd sample-knowledge
 ../bin/docweave
 
-# Serve it locally
+# Serve locally
 python3 -m http.server -d .site
 # → Open http://localhost:8000
 ```
@@ -44,113 +82,113 @@ python3 -m http.server -d .site
 Or use `make` from the root:
 
 ```bash
-make build    # Build sample-cats
+make build    # Build sample-knowledge
 make serve    # Build + serve on :8000
 ```
 
-## How It Works
+## The Architecture
 
-A `project.yaml` file defines your data model. Here's the demo schema:
+### Atomic Notes + Propagated Indexes
 
-```yaml
-# project.yaml
-types:
-  cat:
-    icon: "🐱"
-    color: "#e67e22"
-    label: "Cat"
-    fields:
-      born:     { label: "Born", type: date }
-      color:    { label: "Color" }
-      parents:  { label: "Parents" }
+```
+leaf note (on-policy-distillation.md)
+  → paper folder (_index.md lists it)
+    → papers/ _index.md lists paper folder with its description
+      → ai/ _index.md lists papers/ category
+        → research/ _index.md lists ai/ branch
+          → root _index.md lists everything
 ```
 
-The build pipeline reads this schema, parses all markdown files, resolves `[[wikilinks]]`, builds backlinks, and generates `index.json` — a structured export of every note, its frontmatter, its `description`, its outgoing and incoming links, and its attachments. The static HTML/JS renderer then adapts everything — type badges, field pills, dates, timeline nav, graph colors — from that schema at runtime.
-
-## Features
-
-| Feature | Description |
-|---|---|
-| **LLM-ready frontmatter** | Every note has a short `description` field for quick AI ingestion |
-| **Auto-generated indexes** | `_index.md` files built from frontmatter descriptions, not body heuristics |
-| **Structured JSON export** | `index.json` with all notes, types, links, and metadata |
-| **Schema-driven** | Types, field roles (tag vs. date), icons, colors — all in one YAML file |
-| **Wikilinks** | `[[note-title]]` and `[[path/to/note\|display text]]` with backlink resolution |
-| **Backlinks** | Automatic inbound-link tracking for every note |
-| **Graph view** | D3.js force-directed graph with type filtering, search, and preview |
-| **Timeline addon** | Chronological navigation from any `type: date` field |
-| **Attachments** | Binary files (PDFs, images) beside `_index.md` auto-discovered and copied |
-| **Search** | Full-text search across titles, bodies, and all frontmatter fields |
-| **Link validation** | Built-in tool for broken wikilinks, orphans, and duplicate slugs |
-
-## The `description` Field
-
-Every note can carry a short `description` in its YAML frontmatter. This is the **single most important thing** that makes DocWeave LLM-friendly:
-
-```yaml
----
-type: character
-description: "Elven ranger, captain of the northern guard, carries the Starwood Bow"
----
-```
-
-- **Short** — keep it under 200 characters. That's ~20-35 tokens, trivial for an LLM context window.
-- **Factual** — nouns, attributes, relationships. Not prose.
-- **Semantic** — captures what the note *is*, not just its first paragraph.
-
-When `update_indexes` regenerates directory indexes, it prefers this field over auto-extracted body text. For a project with 100,000 notes, this means reading only the frontmatter (first ~20 lines) instead of every file's full body — a **10–50x reduction** in I/O.
-
-### With or without
-
-The `description` field is optional. Notes without one fall back to the old heuristic (first substantive paragraph). But for any project that aims to be LLM-consumable, adding short descriptions is the highest-leverage thing you can do.
-
-## Auto-Generated Indexes
-
-When enabled, DocWeave regenerates `_index.md` files on every build — one per content directory. Each index:
+Every directory gets an auto-generated `_index.md` that:
 
 1. Lists `.md` files grouped by frontmatter `type`
-2. Uses each note's `description` field (falls back to auto-extracted first paragraph)
-3. Links to subdirectory `_index.md` files
-4. Preserves existing frontmatter, intro text, and `## See Also` / `## Related` sections
+2. Links to subdirectory `_index.md` files, using their frontmatter `description`
+3. Preserves any hand-written frontmatter fields
 
-```yaml
-# project.yaml
-addons:
-  update_indexes:
-    enabled: true
+An LLM navigating this reads one file per level:
+
+```
+root/_index.md  →  research/  →  ai/  →  papers/  →  attention-is-all-you-need/  →  multi-head-attention.md
 ```
 
-This means your directory listings are **always fresh** — add a note, rebuild, and the index picks it up. No manual updating.
+Each hop costs a few KB of context. No JSON parsing, no database queries.
 
-For LLM consumption, the generated `_index.md` files serve as lightweight table-of-contents summaries. An LLM can read one per context window and understand the full shape of a directory.
+### The `description` Field
+
+The single most important field in any note's frontmatter:
+
+```yaml
+---
+type: paper
+title: "Attention Is All You Need"
+era: 2017-06
+description: "Vaswani et al. 2017 — The transformer architecture that revolutionized NLP. Introduced self-attention and removed recurrence entirely."
+---
+```
+
+- **Short** — keep it under 200 characters (~20–35 tokens)
+- **Factual** — nouns, attributes, relationships. Not prose.
+- **Semantic** — captures what the note *is*, not its first paragraph
+
+When `update_indexes` regenerates directory listings, it prefers this field over auto-extracted body text. The `description` field is optional — notes without one fall back to body extraction — but adding descriptions is the highest-leverage thing you can do for LLM navigability.
+
+### The Buddy-Note Pattern (Binary Files)
+
+PDFs, images, audio files, and other binaries are **invisible to LLMs**. Instead of trying to parse them (fragile, expensive, format-specific), create a `.md` "buddy note" that describes the binary:
+
+```
+attention.pdf     ← not committed. LLM can't read it.
+attention.md      ← committed. Describes it for the LLM.
+```
+
+The buddy note carries the semantic weight:
+
+```yaml
+---
+type: document
+title: "Attention Is All You Need"
+description: "Vaswani et al. 2017 — The transformer paper"
+file: attention.pdf
+---
+```
+
+The binary file is gitignored (see `sample-knowledge/.gitignore`). Only the `.md` notes enter version control. If you drop the actual PDF into the folder, DocWeave copies it to `.site/` for human browsing — but the LLM never touches it.
+
+This works for **anything**: PDFs, images, MP3s, videos, datasets. Every binary gets a note that says what it is, who created it, when, and how it connects to other notes.
+
+### What About 100K Files?
+
+If your knowledge base grows to 100,000 notes, the graph addon and monolithic `index.json` become unwieldy. The answer: **split at a higher level.**
+
+```
+research/project.yaml     — one project per domain
+ai/project.yaml
+personal/project.yaml
+```
+
+Each sub-project is a self-contained knowledge base with its own graph, timeline, and indexes. An LLM can navigate between them via top-level `_index.md` files. This is the Unix philosophy applied to knowledge: small, focused projects that compose.
 
 ## Project Structure
 
 ```
-├── .pi/                   # Pi coding assistant config
-│   ├── settings.json      #   Project settings (points to project.yaml)
-│   └── extensions/        #   Custom tools
-│       └── docweave-link-validator.ts
-├── bin/docweave           # CLI entry point (executable)
-├── docweave/              # Python package — the build engine
-│   ├── __init__.py        #   Package init
-│   ├── __main__.py        #   Entry: python3 -m docweave
-│   ├── config.py          #   project.yaml loading & validation
+├── bin/docweave           # CLI entry point
+├── docweave/              # Python build engine
+│   ├── __main__.py        #   5-step build pipeline
+│   ├── config.py          #   project.yaml loading
 │   ├── parser.py          #   Frontmatter, wikilinks, note parsing
 │   ├── builder.py         #   Index building, backlinks, sidebar
-│   ├── addons.py          #   Timeline and future addons (post-scan)
-│   ├── update_indexes.py  #   Auto-generate _index.md files (pre-scan)
-│   └── writer.py          #   JSON output, renderer & attachment copy
-├── renderer/              # Source: shared HTML/CSS/JS renderer files
-│   ├── index.html         #   Wiki view (sidebar + note content)
-│   ├── zettel.html        #   Graph view (D3.js force layout)
+│   ├── addons.py          #   Graph, timeline runners
+│   ├── update_indexes.py  #   Auto-generate _index.md files
+│   └── writer.py          #   index.json, attachments
+├── renderer/              # HTML/CSS/JS site templates
+│   ├── index.html         #   Wiki view (sidebar + notes)
+│   ├── zettel.html        #   Graph view (D3.js)
 │   └── style.css          #   Dark theme
-├── sample-cats/           # Demo project
-│   ├── project.yaml       #   Schema definition
-│   ├── cats/              #   Notes of type "cat"
-│   ├── litters/           #   Notes of type "litter"
+├── sample-knowledge/      # Complete demo knowledge base
+│   ├── project.yaml       #   Config — types, addons, index
+│   ├── .gitignore         #   Binary file policy
 │   └── .site/             #   Generated output (gitignored)
-├── Makefile               # Build and serve shortcuts
+├── Makefile               # Build + serve shortcuts
 └── README.md
 ```
 
@@ -158,13 +196,50 @@ On every build, the shared renderer files (from `renderer/`) are copied into `.s
 
 > 💡 **Edit the renderer?** Change files in `renderer/`, then run `make build` to sync them into `.site/`.
 
-## Addons
+## Configuration: project.yaml
 
-DocWeave supports two kinds of addons: **pre-scan** (run before notes are parsed) and **post-scan** (run after the index is built). Enable them in `project.yaml` under the `addons` key.
+A single file defines everything — types, icons, addons, index behavior:
+
+```yaml
+project:
+  name: "My Knowledge Base"
+
+types:
+  person:
+    icon: "👤"
+    color: "#4a90d9"
+    label: "Person"
+  paper:
+    icon: "📄"
+    color: "#d9a04a"
+    label: "Paper"
+  concept:
+    icon: "💡"
+    color: "#a04ad9"
+    label: "Concept"
+
+index:
+  entity_fields: [people, topics]
+  name_fields: [people]
+  topic_fields: [topics]
+
+addons:
+  graph:
+    enabled: true
+  timeline:
+    field: era
+    format: era
+  update_indexes:
+    enabled: true
+```
+
+The `index:` section configures how the pi coding assistant extension reads your knowledge base — fields for graph entities, searchable names, and topic categorization. Every tool reads from `project.yaml`.
+
+## Addons
 
 ### graph (post-scan)
 
-Enables the D3.js force-directed graph view — every note is a node, every `[[wikilink]]` is an edge.
+D3.js force-directed graph — every note is a node, every `[[wikilink]]` is an edge. Type filtering, search, and preview included.
 
 ```yaml
 addons:
@@ -172,58 +247,45 @@ addons:
     enabled: true
 ```
 
-In **[sample-cats](sample-cats/)** (13 notes), the graph shows a tight family tree of cats and litters — parents, kittens, bloodlines. Every `[[wikilink]]` between a cat and its litter becomes an edge. The same pattern scales: a breed registry with thousands of entries becomes an explorable pedigree network.
+In sample-knowledge, the graph shows connections between papers, their atomic concepts, and the docweave project documentation.
 
 ---
 
 ### timeline (post-scan)
 
-Builds a chronological timeline from any date field. Two formats available, depending on your project:
+Chronological view from any date field. Two formats:
 
-**`format: iso`** — for precise, modern dates (birth years, historical records, project milestones)
+**`format: iso`** — precise dates (birth years, project milestones)
 
 ```yaml
-# sample-cats/project.yaml  —  cat breeding records
 addons:
   timeline:
-    field: born
+    field: era
     format: iso
 ```
 
-Each cat's `born: "2022"` becomes a point on the timeline. Result: a chronological view of the breeding program.
+Renders Samuel Johnson (1709) → Attention paper (2017) → Hardcore History episode (2014) on a human-readable timeline.
 
-**`format: era`** — for fuzzy or ancient dates (`~500 BCE`, `~1919 CE`, `~700–900 CE`)
+**`format: era`** — fuzzy or ancient dates (`~500 BCE`, `~1919 CE`, `~700–900 CE`)
+
+The origin legend of the **Birman** breed — the story of High Priest Mun-Ha and the sacred temple cats — is set in the pre-Buddhist era (~500 BCE). The first European import arrived ~1919 CE. The timeline addon parses era strings, handles BCE/CE sorting, and unpacks ranges like `~1919–1925 CE`.
 
 ```yaml
-# Birman breed registry —  temple cat history
 addons:
   timeline:
     field: era
     format: era
 ```
 
-The origin legend of the **Birman** breed — the story of High Priest Mun-Ha and the sacred temple cats of Myanmar — is set in the pre-Buddhist era. Notes carry dates like `era: ~500 BCE`:
-
-> **The Legend of Mun-Ha (~500 BCE)** → **First European Import (~1919 CE)**
-
-The addon parses era strings, handles BCE/CE sorting, and even unpacks ranges like `~1919–1925 CE`. The timeline renders oldest-first on the page, regardless of format.
-
 ---
 
 ### update_indexes (pre-scan)
 
-Auto-generates `_index.md` files. See the [Auto-Generated Indexes](#auto-generated-indexes) section above. Every project in this repo uses it — including the one you're reading.
-
-## Adding a New Project
-
-1. Copy the `sample-cats/` directory or start fresh
-2. Edit `project.yaml` with your own types and fields
-3. Write markdown notes with YAML frontmatter (each needs `type:` and, ideally, `description:`)
-4. Run `../bin/docweave` from your project directory
+Auto-generates `_index.md` files on every build. Creates directory listings, propagates descriptions upward, and preserves hand-written frontmatter. Every project in this repo uses it.
 
 ## Link Validation
 
-DocWeave includes a link validator (pi extension at `.pi/extensions/docweave-link-validator.ts`) that scans all markdown files for broken wikilinks, orphaned notes, and duplicate slugs.
+DocWeave includes a link validator (pi extension at `.pi/extensions/docweave-link-validator.ts`) that scans for broken wikilinks, orphaned notes, and duplicate slugs.
 
 In the pi coding assistant:
 
@@ -240,21 +302,22 @@ Or from the command line:
 /validate-links --check duplicates
 ```
 
-## Tech Stack
-
-- **Build:** Python + PyYAML (stdlib except `yaml`)
-- **Render:** Vanilla HTML + CSS + JavaScript
-- **Graph:** D3.js v7 (loaded from CDN)
-- **Markdown:** marked.js (loaded from CDN)
-
 ## Design Philosophy
 
-**The schema is the template.** A new project type requires no code — just a `project.yaml` and content files. The build pipeline reads your schema, parses every note, resolves links, and generates both a browsable wiki and a structured JSON index — all from one config file.
+**The schema is the template.** A new project requires no code — just `project.yaml` and content files. The build pipeline reads your schema, parses every note, resolves links, and generates both a browsable wiki and structured JSON — all from one config file.
 
-**Designed for two audiences.** Humans get type badges, graph views, timelines, and backlinks. LLMs get structured frontmatter, short semantic descriptions, auto-generated directory indexes, and a machine-readable JSON export. Both come from the same markdown files — no duplication.
+**Two audiences, one source.** Humans get type badges, graph views, timelines, and backlinks. LLMs get structured frontmatter, short semantic descriptions, propagated directory indexes, and a machine-readable JSON export. Both come from the same markdown files.
 
-**Flat files, static output.** Everything is plain markdown with YAML frontmatter. No database, no server-side runtime, no lock-in. The output is a directory of static files you can host anywhere.
+**Flat files, static output.** Plain markdown with YAML frontmatter. No database, no runtime, no lock-in. The output is a directory of static files you can zip and host anywhere.
 
-**Performance is a feature.** The `description` frontmatter field means index regeneration can skip full-body parsing. For projects with 100,000 notes, the difference between reading the first 20 lines and the full 200+ lines per file is the difference between seconds and minutes. The architecture scales to large knowledge bases without exotic infrastructure.
+**Propagation over flat search.** Instead of a single monolithic search index, DocWeave builds hierarchical directory summaries. An LLM navigates from broad descriptions to specific notes in logarithmic time — reading one small file per level instead of parsing a giant index.
 
-> A wiki should be useful to people *and* machines. DocWeave gives you both, from the same markdown files.
+**Composition over scale.** When a project grows beyond a single graph/timeline, split it into sub-projects. Each sub-project is its own knowledge base, and the top-level `_index.md` files act as a navigation layer between them.
+
+## Tech Stack
+
+- **Build:** Python + PyYAML
+- **Render:** Vanilla HTML + CSS + JavaScript
+- **Graph:** D3.js v7 (CDN)
+- **Markdown:** marked.js (CDN)
+- **Editor:** Pi coding assistant extensions (TypeScript)

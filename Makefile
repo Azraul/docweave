@@ -1,15 +1,14 @@
-.PHONY: build serve clean
+.PHONY: build serve clean build-cats
 
 build:
-	cd sample-cats && ../bin/docweave
+	cd sample-knowledge && ../bin/docweave
 
 serve:
-	cd sample-cats && ../bin/docweave && python3 -m http.server -d .site 8000
+	cd sample-knowledge && ../bin/docweave && python3 -m http.server -d .site 8000
+
+build-cats:
+	cd sample-cats && ../bin/docweave
 
 clean:
-	rm -rf sample-cats/.site/*
+	rm -rf sample-knowledge/.site/* sample-cats/.site/*
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
-
-# Also works from sibling projects (e.g. ../my-project)
-# cd ../my-project && make build
-# (each project has its own Makefile)

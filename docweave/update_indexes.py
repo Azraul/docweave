@@ -296,7 +296,16 @@ def build_full_index(fm: dict, body_lines: list) -> str:
         if isinstance(value, list):
             fm_lines.append(f"{key}: [{', '.join(str(v) for v in value)}]")
         elif isinstance(value, str):
-            fm_lines.append(f"{key}: {value}")
+            # Quote values that could break YAML parsing (colons, special chars)
+            if (
+                ":" in value
+                or value.startswith(('{', "[", "'", '"', "&", "*", "!", "|", ">", "%", "@", "`"))
+                or value.strip() != value
+            ):
+                escaped = value.replace('"', '\\"')
+                fm_lines.append(f'{key}: "{escaped}"')
+            else:
+                fm_lines.append(f"{key}: {value}")
         else:
             fm_lines.append(f"{key}: {value}")
     fm_lines.append("---")

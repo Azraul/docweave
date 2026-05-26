@@ -1,0 +1,55 @@
+# sample-knowledge — My personal knowledge base
+project:
+  name: "My Knowledge Base"
+  tagline: "People, research, projects, and ideas — organized for humans and LLMs"
+
+build:
+  content_dir: "."
+  output_dir: ".site"
+  exclude_dirs:
+    - .git
+    - node_modules
+  ignore:
+    - AGENTS.md
+    - README.md
+    - project.yaml
+
+types:
+  person:
+    icon: "👤"
+    color: "#4a90d9"
+    label: "Person"
+  paper:
+    icon: "📄"
+    color: "#d9a04a"
+    label: "Paper"
+  concept:
+    icon: "💡"
+    color: "#a04ad9"
+    label: "Concept"
+  project:
+    icon: "🔧"
+    color: "#4ad9a0"
+    label: "Project"
+  podcast:
+    icon: "🎙️"
+    color: "#d94a4a"
+    label: "Podcast"
+  index:
+    icon: "📑"
+    color: "#666666"
+    label: "Index"
+
+index:
+  entity_fields: [people, topics]
+  name_fields: [people]
+  topic_fields: [topics]
+
+addons:
+  graph:
+    enabled: true
+  timeline:
+    field: era
+    format: era
+  update_indexes:
+    enabled: true

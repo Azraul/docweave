@@ -1,0 +1,26 @@
+# ── sample-knowledge ──────────────────────────────────────────
+# This .gitignore lives inside sample-knowledge/ because it
+# configures what knowledge-base content gets versioned.
+# The root docweave .gitignore handles project-level build
+# artifacts (__pycache__, .site/, etc.) — separate concerns.
+# ─────────────────────────────────────────────────────────────
+
+# Documents
+*.pdf *.epub *.mobi *.doc* *.xls* *.ppt*
+
+# Audio
+*.mp3 *.wav *.flac *.aac *.ogg
+
+# Video
+*.mp4 *.mkv *.avi *.mov *.webm
+
+# Images — uncomment to commit avatars, logos, diagrams:
+# *.png *.jpg *.jpeg
+*.gif *.webp *.svg *.ico *.bmp
+
+# Archives, data, models
+*.zip *.tar *.gz *.rar *.7z
+*.csv *.json *.xml *.pickle *.h5 *.pth
+
+# Build output
+.site/
