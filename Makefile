@@ -10,6 +10,6 @@ clean:
 	rm -rf sample-cats/.site/*
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
 
-# Also works from sibling projects (e.g. ../forbidden-apple)
-# cd ../forbidden-apple && make build
+# Also works from sibling projects (e.g. ../my-project)
+# cd ../my-project && make build
 # (each project has its own Makefile)
