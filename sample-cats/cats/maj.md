@@ -4,6 +4,7 @@ sex: female
 color: chocolate point
 born: "2022"
 parents: [Nanny, Appu]
+description: "Chocolate point female, twin sister of Morgo, daughter of Nanny and Appu"
 ---
 
 # Maj

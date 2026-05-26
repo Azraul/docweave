@@ -4,6 +4,7 @@ sex: male
 color: chocolate point
 born: "2025"
 parents: [Esbeth, Surpa]
+description: "Chocolate point male, son of Esbeth and Surpa"
 ---
 
 # Bert

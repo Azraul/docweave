@@ -2,6 +2,7 @@
 
 import os
 import re
+import sys
 from fnmatch import fnmatch
 
 import yaml
@@ -150,6 +151,7 @@ def parse_note(project_root: str, rel_path: str, config: dict) -> dict | None:
         "type": note_type,
         "path": rel_path.replace("\\", "/"),
         "body": body,
+        "description": fm.get("description", ""),
         "links_out": [l["target"] for l in wikilinks],
         "links_in": [],
     }

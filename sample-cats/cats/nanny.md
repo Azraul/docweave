@@ -4,6 +4,7 @@ sex: female
 color: chocolate point
 born: "2020"
 children: [Morgo, Maj]
+description: "Chocolate point female, dam of Morgo and Maj with Appu"
 ---
 
 # Nanny

@@ -139,8 +139,18 @@ def generate_index(dir_path: Path, content_dir: Path, exclude_dirs: set) -> str 
     for f in files:
         text = f.read_text(encoding="utf-8")
         fm_note, body = parse_frontmatter(text)
-        heading = extract_heading(body)
-        desc = extract_first_paragraph(body, heading)
+
+        # Prefer explicit frontmatter description (fast, semantic, LLM-friendly)
+        desc = fm_note.get("description", "")
+        if not desc:
+            heading = extract_heading(body)
+            desc = extract_first_paragraph(body, heading)
+        else:
+            # Truncate long descriptions at 200 chars
+            if len(desc) > 200:
+                desc = desc[:200].rsplit(" ", 1)[0] + "…"
+            heading = None
+
         note_type = fm_note.get("type", "note")
         topics = fm_note.get("topics", [])
         if isinstance(topics, str):

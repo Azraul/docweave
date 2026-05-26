@@ -5,6 +5,7 @@ color: chocolate point
 title: Junior Champion
 born: "2022"
 children: [Bert, Bella, Bia]
+description: "Chocolate point female, Junior Champion, dam of Bert, Bella, and Bia"
 ---
 
 # Esbeth

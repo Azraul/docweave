@@ -5,6 +5,7 @@ color: chocolate point, orange
 title: Champion
 born: "2020"
 children: [Bert, Bella, Bia]
+description: "Chocolate point male with orange accents, sire of Bert, Bella, and Bia"
 ---
 
 # Surpa

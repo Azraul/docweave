@@ -5,6 +5,7 @@ color: tabby brown
 title: International Champion
 born: "2021"
 children: [Morgo, Maj]
+description: "Tabby brown male, International Champion, sire of Morgo and Maj"
 ---
 
 # Appu

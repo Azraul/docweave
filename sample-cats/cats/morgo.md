@@ -5,6 +5,7 @@ color: tabby brown
 title: Champion
 born: "2022"
 parents: [Nanny, Appu]
+description: "Tabby brown male, Champion, twin brother of Maj, son of Nanny and Appu"
 ---
 
 # Morgo

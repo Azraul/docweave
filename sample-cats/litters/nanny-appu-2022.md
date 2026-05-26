@@ -3,6 +3,7 @@ type: litter
 year: "2022"
 parents: [Nanny, Appu]
 kittens: [Morgo, Maj]
+description: "Litter of two by Nanny and Appu — one champion (Morgo) and one female (Maj)"
 ---
 
 # Nanny & Appu — 2022 Litter

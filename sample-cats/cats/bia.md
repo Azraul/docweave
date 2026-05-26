@@ -4,6 +4,7 @@ sex: female
 color: chocolate point
 born: "2025"
 parents: [Esbeth, Surpa]
+description: "Chocolate point female, daughter of Esbeth and Surpa"
 ---
 
 # Bia
