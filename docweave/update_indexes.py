@@ -72,6 +72,23 @@ def slug_to_display(slug: str) -> str:
 # ── Index generation ───────────────────────────────────────────────────────
 
 
+def resolve_description(fm: dict, body: str, heading: str | None = None) -> str:
+    """Resolve a note's description: prefer frontmatter `description`, else extract from body.
+
+    Returns at most ~200 characters. Handles both regular notes and _index.md
+    subdirectory entries with the same logic.
+    """
+    desc = fm.get("description", "")
+    if desc:
+        if len(desc) > 200:
+            desc = desc[:200].rsplit(" ", 1)[0] + "…"
+    else:
+        if heading is None:
+            heading = extract_heading(body)
+        desc = extract_first_paragraph(body, heading)
+    return desc
+
+
 def generate_index(dir_path: Path, content_dir: Path, exclude_dirs: set) -> str | None:
     """Generate _index.md content for a directory. Returns None if empty."""
     rel = dir_path.relative_to(content_dir)
@@ -140,16 +157,7 @@ def generate_index(dir_path: Path, content_dir: Path, exclude_dirs: set) -> str 
         text = f.read_text(encoding="utf-8")
         fm_note, body = parse_frontmatter(text)
 
-        # Prefer explicit frontmatter description (fast, semantic, LLM-friendly)
-        desc = fm_note.get("description", "")
-        if not desc:
-            heading = extract_heading(body)
-            desc = extract_first_paragraph(body, heading)
-        else:
-            # Truncate long descriptions at 200 chars
-            if len(desc) > 200:
-                desc = desc[:200].rsplit(" ", 1)[0] + "…"
-            heading = None
+        desc = resolve_description(fm_note, body)
 
         note_type = fm_note.get("type", "note")
         topics = fm_note.get("topics", [])
@@ -206,7 +214,9 @@ def generate_index(dir_path: Path, content_dir: Path, exclude_dirs: set) -> str 
         sub_text = sub_file.read_text(encoding="utf-8")
         sub_fm, sub_body = parse_frontmatter(sub_text)
         sub_title = extract_heading(sub_body) or slug_to_display(sd.name)
-        sub_desc = extract_first_paragraph(sub_body, sub_title)
+
+        sub_desc = resolve_description(sub_fm, sub_body, sub_title)
+
         if not sub_desc:
             sub_types = sub_fm.get("topics", [])
             if sub_types:
