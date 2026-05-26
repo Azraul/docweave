@@ -12,4 +12,4 @@ The Transformer is a sequence-to-sequence model built entirely on **self-attenti
 - **Long-range dependencies** — each token can directly attend to any other token, avoiding the vanishing gradient problem of recurrent models
 - **Simpler architecture** — fewer inductive biases, letting the model learn positional relationships from data
 
-The model uses an encoder-decoder structure where both encoder and decoder are stacks of identical layers, each containing multi-head self-attention and position-wise feed-forward networks.
+The model uses an encoder-decoder structure where both encoder and decoder are stacks of identical layers, each containing multi-head self-attention and position-wise feed-forward networks. Each sub-layer also includes a residual connection around it — the same [[research/ai/papers/resnet/skip-connections|skip connection]] idea that made deep networks trainable.

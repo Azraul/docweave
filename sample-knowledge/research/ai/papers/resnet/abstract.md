@@ -11,3 +11,5 @@ The key insight: instead of learning an unreferenced mapping `H(x)`, let the sta
 This reformulation makes deep networks easier to optimize. Why? Because if an identity mapping is optimal, the layers can simply push the residuals toward zero — far easier than learning the identity from scratch through multiple nonlinear layers.
 
 Empirical result: a plain 56-layer network has higher training error than a 20-layer network (the degradation problem). With residual connections, the 56-layer network outperforms the 20-layer version.
+
+The same skip-connection pattern was later adopted by the [[research/ai/papers/attention-is-all-you-need/_index|Transformer]], where every sub-layer (self-attention and feed-forward) wraps itself in a residual connection — making deep Transformer stacks trainable.

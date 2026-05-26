@@ -24,6 +24,6 @@ root/_index.md
           → .../multi-head-attention.md
 ```
 
-Each hop reads one `_index.md` file (a few KB), decides whether to go deeper, and follows a `[[wikilink]]` to the next level. No JSON parsing, no database queries — just flat markdown files.
+Each hop reads one `_index.md` file (a few KB), decides whether to go deeper, and follows a `[wikilink]` to the next level. No JSON parsing, no database queries — just flat markdown files.
 
 **For humans**, the same `_index.md` files render as browsable directory pages in the `.site/` output.

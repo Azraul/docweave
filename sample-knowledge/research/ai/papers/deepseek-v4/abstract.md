@@ -13,3 +13,5 @@ DeepSeek-V4 continues the MoE lineage of its predecessors but with significant a
 - **Long-context optimization** — attention mechanisms and positional encodings designed for sequences of 1M+ tokens
 
 The Pro and Flash variants target different deployment scenarios — Pro for research and high-accuracy tasks, Flash for edge deployment and real-time applications.
+
+The architecture builds on the [[research/ai/papers/attention-is-all-you-need/_index|Transformer]] foundation, extending it with MoE routing and long-context attention mechanisms.

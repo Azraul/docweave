@@ -4,7 +4,7 @@ title: "Samuel Johnson"
 era: "1709-09-07"
 description: "English lexicographer, poet, and wit. Compiled the first comprehensive English dictionary (1755). Also, unwittingly, an internet reaction meme."
 people: [samuel-johnson]
-topics: [literature, language, internet-culture]
+topics: [literature, language, history, internet-culture]
 ---
 
 # Samuel Johnson
@@ -38,3 +38,7 @@ He is also one of the most quoted Englishmen in history, which makes his own con
 > *"No man but a blockhead ever wrote, except for money."*
 
 Reynolds got his money. Johnson got his meme. This is the balance of history.
+
+### On History and Fanaticism
+
+Johnson was famously skeptical of religious enthusiasm — the belief that one has a direct line to divine truth. He would have had sharp words for the leaders of the [[podcasts/hardcore-history-prophets-of-doom|Münster Rebellion]], who in 1534 declared their city the New Jerusalem and instituted polygamy by divine decree. His likely verdict: "Sir, your revelation is suspiciously convenient."

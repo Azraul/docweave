@@ -15,3 +15,5 @@ The approach:
 3. Train the student to match the teacher's distribution on the student's own outputs
 
 This is particularly effective for MoE architectures where the routing decisions of the student and teacher can differ significantly. By training on student-generated sequences, the distillation aligns with the actual inference-time behavior, leading to better quality at a fraction of the compute cost.
+
+The teacher model (Pro) itself builds on the [[research/ai/papers/attention-is-all-you-need/_index|Transformer]] architecture — making this an example of distilling a transformer-based MoE into a smaller one.

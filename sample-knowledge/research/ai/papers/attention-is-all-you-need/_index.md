@@ -4,7 +4,6 @@ title: Attention Is All You Need
 era: 2017-06
 description: Vaswani et al. 2017 — The transformer architecture that revolutionized NLP. Introduced self-attention and removed recurrence entirely.
 topics: [transformers, nlp, deep-learning]
-people: [alan-turing]
 ---
 
 # Attention Is All You Need

@@ -16,4 +16,4 @@ DocWeave's core pipeline runs in five phases:
 
 The key innovation is step 2's **bottom-up approach**: leaf directories are processed first, so parent directories can read their children's `_index.md` frontmatter `description` field and include it in the parent's listing.
 
-This creates a propagation chain where a `description` written at any level flows upward to every ancestor directory.
+This creates a propagation chain where a `description` written at any level flows upward to every ancestor directory. See [[research/projects/docweave/index-propagation|index-propagation]] for how an LLM navigates these chains.

@@ -25,3 +25,5 @@ def multi_head_attention(Q, K, V, num_heads=8):
 ```
 
 Each head may learn different relationship types — syntactic structure, coreference, semantic similarity. The concatenated output is projected back to the model dimension, giving the model a richer representation than any single attention function could provide.
+
+Because attention operates on unordered sets, the model also needs [[research/ai/papers/attention-is-all-you-need/positional-encoding|positional encodings]] to understand token order — a separate mechanism that works alongside the attention heads.

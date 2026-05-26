@@ -4,7 +4,6 @@ title: Deep Residual Learning for Image Recognition
 era: 2015-12
 description: He et al. 2015 — Deep Residual Learning. Skip connections that enabled training networks with 100+ layers.
 topics: [computer-vision, deep-learning]
-people: [fei-fei-li]
 ---
 
 # Deep Residual Learning (ResNet)

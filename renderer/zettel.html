@@ -93,7 +93,25 @@ function buildGraph() {
     const sourceIdx = slugToIdx[slug];
     if (sourceIdx === undefined) continue;
     for (const outSlug of (note.links_out || [])) {
-      const resolved = (DATA.notes[outSlug] ? outSlug : (DATA.slug_lookup?.[outSlug.toLowerCase()] || null));
+      // Resolve wikilink target — same logic as builder._resolve_link
+      let resolved = DATA.notes[outSlug] ? outSlug : null;
+      if (!resolved) {
+        // Try slug lookup
+        const lookup = DATA.slug_lookup?.[outSlug.toLowerCase()];
+        if (lookup && lookup.length > 0) resolved = lookup[0];
+      }
+      if (!resolved) {
+        // Try stripping /_index suffix (directory wikilinks)
+        const stripped = outSlug.endsWith('/_index') ? outSlug.slice(0, -7) :
+                         outSlug === '_index' ? '' : null;
+        if (stripped !== null) {
+          resolved = DATA.notes[stripped] ? stripped : null;
+          if (!resolved) {
+            const lookup = DATA.slug_lookup?.[stripped.toLowerCase()];
+            if (lookup && lookup.length > 0) resolved = lookup[0];
+          }
+        }
+      }
       if (!resolved || slugToIdx[resolved] === undefined) continue;
       const targetIdx = slugToIdx[resolved];
       const key = [Math.min(sourceIdx, targetIdx), Math.max(sourceIdx, targetIdx)].join('-');
@@ -170,6 +188,11 @@ function buildGraph() {
 }
 
 function onNodeClick(d) {
+  // Toggle: clicking the same node closes the preview
+  if (SELECTED_SLUG === d.slug) {
+    closePreview();
+    return;
+  }
   SELECTED_SLUG = d.slug;
   highlightNode(d.slug);
   showPreview(d);

@@ -33,6 +33,8 @@ It's a story about:
 
 > *"History is just one damn thing after another."* — Not Dan Carlin, but he'd agree.
 
+Centuries later, [[people/samuel-johnson|Samuel Johnson]] would write that "the best part of every author is to be found in his book, not his person" — a sentiment that applies equally to the prophets of Münster. Their ideas outlived their cage-bound bodies.
+
 ---
 
 *This note is dedicated to everyone who has ever said "I wonder if this will end well" about something that clearly, obviously, will not.*
