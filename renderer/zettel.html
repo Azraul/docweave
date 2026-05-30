@@ -61,10 +61,11 @@ function buildGraph() {
   const notesMap = DATA.notes || {};
   const slugs = Object.keys(notesMap);
 
-  // Node sizing by backlink count
+  // Node sizing by total connections (links_in + links_out)
   const linkCounts = {};
   for (const slug of slugs) {
-    linkCounts[slug] = (notesMap[slug].links_in || []).length;
+    const n = notesMap[slug];
+    linkCounts[slug] = ((n.links_in || []).length + (n.links_out || []).length);
   }
   const maxLinks = Math.max(1, ...Object.values(linkCounts));
 

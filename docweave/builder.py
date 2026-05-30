@@ -59,6 +59,10 @@ def build_index(project_root: str, config: dict) -> dict:
         notes[slug] = note
         key = slug.lower()
         slug_lookup.setdefault(key, []).append(slug)
+        # Also register basename for bare-slug resolution (e.g. [[koharu_the_fox]])
+        base = slug.split("/")[-1].lower()
+        if base != key:
+            slug_lookup.setdefault(base, []).append(slug)
 
     # Resolve backlinks (links_in)
     for slug, note in notes.items():
@@ -66,7 +70,9 @@ def build_index(project_root: str, config: dict) -> dict:
             resolved = _resolve_link(target, notes, slug_lookup)
 
             if isinstance(resolved, str):
-                notes[resolved].setdefault("links_in", []).append(slug)
+                links_in_list = notes[resolved].setdefault("links_in", [])
+                if slug not in links_in_list:
+                    links_in_list.append(slug)
             elif isinstance(resolved, list):
                 ambiguous_count += 1
                 note.setdefault("links_unresolved", []).append({
@@ -166,6 +172,14 @@ def _resolve_link(target: str, notes: dict, slug_lookup: dict) -> str | list | N
 def build_sidebar_tree(notes: dict) -> list:
     """Build a recursive sidebar tree structure from note slugs.
 
+    Handles arbitrary nesting depth: slugs like
+    'characters/characters_japan/koharu_the_fox' produce a directory
+    'characters' containing a subdirectory 'characters_japan' containing
+    the leaf 'koharu_the_fox'.
+
+    Directory indexes (_index.md) are attached to their directory nodes
+    via note_slug and title, enabling clickable directory headers.
+
     Returns a list of tree nodes:
       {name, type: "directory", note_slug?, title?, children: [...]}
       {name, type: "leaf", slug, note_type}
@@ -176,8 +190,8 @@ def build_sidebar_tree(notes: dict) -> list:
         if path.endswith("_index.md"):
             index_notes[slug] = slug
 
-    dirs = {}
-    root_children = []
+    # Build nested dict structure: name -> {children: {}, type, slug?, note_type?}
+    root = {}
 
     for slug, note in notes.items():
         path = note.get("path", "")
@@ -185,39 +199,43 @@ def build_sidebar_tree(notes: dict) -> list:
             continue
 
         parts = slug.split("/")
-        if len(parts) > 1:
-            dir_name = parts[0]
-            if dir_name not in dirs:
-                dirs[dir_name] = []
-            leaf_name = note.get("h1", note.get("title", slug))
-            dirs[dir_name].append({
-                "name": leaf_name,
-                "type": "leaf",
-                "slug": slug,
-                "note_type": note.get("type", ""),
-            })
-        else:
-            root_children.append({
-                "name": note.get("title", parts[-1]),
-                "type": "leaf",
-                "slug": slug,
-                "note_type": note.get("type", ""),
-            })
+        leaf_name = note.get("h1", note.get("title", slug))
 
-    tree = []
-    for dir_name in sorted(dirs.keys()):
-        dir_node = {
-            "name": dir_name,
-            "type": "directory",
-            "children": sorted(dirs[dir_name],
-                              key=lambda c: c.get("name", "").lower()),
+        # Walk/create directory chain
+        ptr = root
+        for p in parts[:-1]:
+            if p not in ptr:
+                ptr[p] = {"children": {}, "type": "directory"}
+            ptr = ptr[p]["children"]
+
+        # Insert leaf
+        last = parts[-1]
+        ptr[last] = {
+            "name": leaf_name,
+            "type": "leaf",
+            "slug": slug,
+            "note_type": note.get("type", ""),
         }
-        if dir_name in index_notes:
-            dir_node["note_slug"] = index_notes[dir_name]
-            dir_node["title"] = notes[index_notes[dir_name]].get("title", dir_name)
-        tree.append(dir_node)
 
-    root_children.sort(key=lambda c: c.get("name", "").lower())
-    tree.extend(root_children)
+    def _build(nodes, parent_path=""):
+        """Convert nested dict to sorted list, attaching index notes."""
+        result = []
+        for name in sorted(nodes.keys(), key=lambda k: k.lower()):
+            node = nodes[name]
+            if node["type"] == "directory":
+                dir_path = f"{parent_path}/{name}" if parent_path else name
+                children = _build(node["children"], dir_path)
+                entry = {
+                    "name": name,
+                    "type": "directory",
+                    "children": children,
+                }
+                if dir_path in index_notes:
+                    entry["note_slug"] = dir_path
+                    entry["title"] = notes[dir_path].get("title", name)
+                result.append(entry)
+            else:
+                result.append(node)
+        return result
 
-    return tree
+    return _build(root)
