@@ -62,12 +62,26 @@ function buildGraph() {
   const slugs = Object.keys(notesMap);
 
   // Node sizing by total connections (links_in + links_out)
+  // Five percentile-bucketed tiers, all scaled from MAX_RADIUS:
+  const MAX_RADIUS = 20;
   const linkCounts = {};
   for (const slug of slugs) {
     const n = notesMap[slug];
     linkCounts[slug] = ((n.links_in || []).length + (n.links_out || []).length);
   }
-  const maxLinks = Math.max(1, ...Object.values(linkCounts));
+  const sorted = Object.values(linkCounts).sort((a, b) => a - b);
+  const n = sorted.length;
+  const p99 = sorted[Math.floor(0.99 * n)];
+  const p80 = sorted[Math.floor(0.80 * n)];
+  const p60 = sorted[Math.floor(0.60 * n)];
+  const p40 = sorted[Math.floor(0.40 * n)];
+  function bucketRadius(links) {
+    if (links > p99) return MAX_RADIUS;
+    if (links > p80) return Math.round(MAX_RADIUS * 12 / MAX_RADIUS);
+    if (links > p60) return Math.round(MAX_RADIUS * 10 / MAX_RADIUS);
+    if (links > p40) return Math.round(MAX_RADIUS *  6 / MAX_RADIUS);
+    return Math.round(MAX_RADIUS *  4 / MAX_RADIUS);
+  }
 
   const nodes = slugs.map(slug => {
     const n = notesMap[slug];
@@ -78,7 +92,7 @@ function buildGraph() {
       type: n.type,
       typeConfig: ti,
       linksIn: linkCounts[slug] || 0,
-      radius: 4 + (linkCounts[slug] / maxLinks) * 14,
+      radius: bucketRadius(linkCounts[slug]),
       excerpt: (n.body || '').replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').slice(0, 200),
     };
   });
