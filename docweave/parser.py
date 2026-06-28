@@ -152,7 +152,7 @@ def parse_note(project_root: str, rel_path: str, config: dict) -> dict | None:
         "path": rel_path.replace("\\", "/"),
         "body": body,
         "description": fm.get("description", ""),
-        "links_out": [l["target"] for l in wikilinks],
+        "links_out": list(dict.fromkeys(l["target"] for l in wikilinks)),
         "links_in": [],
     }
 
